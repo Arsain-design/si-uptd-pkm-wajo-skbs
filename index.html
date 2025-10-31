@@ -1,4 +1,3 @@
-<!-- Disusun berdasarkan index.html sumber: :contentReference[oaicite:0]{index=0} -->
 <!DOCTYPE html>
 <html lang="id" class="h-full">
   <head>
@@ -425,33 +424,58 @@
                   </div>
                 </div>
 
-                <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-1"
-                    >Tekanan Darah (mmHg)</label
-                  >
-                  <div class="flex items-center space-x-3">
+                <!-- Tekanan Darah + Lingkar Perut (tepat disamping Tekanan Darah) -->
+                <div class="grid grid-cols-2 gap-3">
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1"
+                      >Tekanan Darah (mmHg)</label
+                    >
+                    <div class="flex items-center space-x-3">
+                      <input
+                        type="number"
+                        id="tekanan_sistolik"
+                        name="tekanan_sistolik"
+                        required
+                        min="60"
+                        max="250"
+                        class="w-24 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        placeholder="120"
+                      />
+                      <span class="text-gray-500 font-medium">/</span>
+                      <input
+                        type="number"
+                        id="tekanan_diastolik"
+                        name="tekanan_diastolik"
+                        required
+                        min="40"
+                        max="150"
+                        class="w-24 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        placeholder="80"
+                      />
+                      <span class="text-sm text-gray-500">mmHg</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label
+                      for="lingkar_perut"
+                      class="block text-sm font-medium text-gray-700 mb-1"
+                      >Lingkar Perut (cm)</label
+                    >
                     <input
                       type="number"
-                      id="tekanan_sistolik"
-                      name="tekanan_sistolik"
+                      id="lingkar_perut"
+                      name="lingkar_perut"
                       required
-                      min="60"
-                      max="250"
-                      class="w-24 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                      placeholder="120"
+                      min="30"
+                      max="200"
+                      step="0.1"
+                      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      placeholder="Mis: 80"
                     />
-                    <span class="text-gray-500 font-medium">/</span>
-                    <input
-                      type="number"
-                      id="tekanan_diastolik"
-                      name="tekanan_diastolik"
-                      required
-                      min="40"
-                      max="150"
-                      class="w-24 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                      placeholder="80"
-                    />
-                    <span class="text-sm text-gray-500">mmHg</span>
+                    <p class="text-xs text-gray-500 mt-1">
+                      Lingkar perut wajib diisi (dalam cm).
+                    </p>
                   </div>
                 </div>
 
@@ -1035,16 +1059,31 @@
       }
 
       function formatHasilPemeriksaan(data) {
-        return `Tinggi Badan: ${data.tinggi_badan} cm\nBerat Badan: ${data.berat_badan} kg\nTekanan Darah: ${data.tekanan_sistolik}/${data.tekanan_diastolik} mmHg\nNadi: ${data.nadi} x/menit\nSuhu: ${data.suhu}°C\nLaju Pernapasan: ${data.laju_pernapasan} x/menit\nButa Warna: ${data.buta_warna}`;
+        // Tambah Lingkar Perut di hasil pemeriksaan
+        const lingkar =
+          data.lingkar_perut !== undefined &&
+          data.lingkar_perut !== null &&
+          data.lingkar_perut !== ""
+            ? data.lingkar_perut + " cm"
+            : "-";
+        return `Tinggi Badan: ${data.tinggi_badan} cm\nBerat Badan: ${data.berat_badan} kg\nTekanan Darah: ${data.tekanan_sistolik}/${data.tekanan_diastolik} mmHg\nLingkar Perut: ${lingkar}\nNadi: ${data.nadi} x/menit\nSuhu: ${data.suhu}°C\nLaju Pernapasan: ${data.laju_pernapasan} x/menit\nButa Warna: ${data.buta_warna}`;
       }
 
       function updateHasilPemeriksaan(data) {
         const container = document.getElementById("preview-hasil-container");
         if (!container) return;
+        // Pastikan menampilkan Lingkar Perut tepat setelah Tekanan Darah
+        const lingkarDisplay =
+          data.lingkar_perut !== undefined &&
+          data.lingkar_perut !== null &&
+          data.lingkar_perut !== ""
+            ? data.lingkar_perut + " cm"
+            : "-";
         container.innerHTML = `
           <div class="flex" style="margin-bottom:3px;"><span class="w-32 inline-block">Tinggi Badan</span><span class="mr-2">:</span><span>${data.tinggi_badan} cm</span></div>
           <div class="flex" style="margin-bottom:3px;"><span class="w-32 inline-block">Berat Badan</span><span class="mr-2">:</span><span>${data.berat_badan} kg</span></div>
           <div class="flex" style="margin-bottom:3px;"><span class="w-32 inline-block">Tekanan Darah</span><span class="mr-2">:</span><span>${data.tekanan_sistolik}/${data.tekanan_diastolik} mmHg</span></div>
+          <div class="flex" style="margin-bottom:3px;"><span class="w-32 inline-block">Lingkar Perut</span><span class="mr-2">:</span><span>${lingkarDisplay}</span></div>
           <div class="flex" style="margin-bottom:3px;"><span class="w-32 inline-block">Nadi</span><span class="mr-2">:</span><span>${data.nadi} x/menit</span></div>
           <div class="flex" style="margin-bottom:3px;"><span class="w-32 inline-block">Suhu</span><span class="mr-2">:</span><span>${data.suhu}°C</span></div>
           <div class="flex" style="margin-bottom:3px;"><span class="w-32 inline-block">Laju Pernapasan</span><span class="mr-2">:</span><span>${data.laju_pernapasan} x/menit</span></div>
@@ -1375,7 +1414,7 @@
             }
           }
 
-          // Convert numeric fields safely
+          // Convert numeric fields safely (tambahkan lingkar_perut)
           data.umur = parseInt(data.umur) || 0;
           data.tinggi_badan = parseFloat(data.tinggi_badan) || 0;
           data.berat_badan = parseFloat(data.berat_badan) || 0;
@@ -1384,6 +1423,11 @@
           data.nadi = parseInt(data.nadi) || 0;
           data.suhu = parseFloat(data.suhu) || 0;
           data.laju_pernapasan = parseInt(data.laju_pernapasan) || 0;
+          data.lingkar_perut =
+            formData.get("lingkar_perut") !== null &&
+            formData.get("lingkar_perut") !== ""
+              ? parseFloat(formData.get("lingkar_perut"))
+              : "";
 
           // Nomor surat
           const prefix = "400.7.22.1/";
@@ -1394,7 +1438,7 @@
           data.nomor_surat = prefix + suffix;
           data.created_at = new Date().toISOString();
 
-          // Hasil pemeriksaan
+          // Hasil pemeriksaan (termuat lingkar perut)
           data.hasil_pemeriksaan = formatHasilPemeriksaan(data);
 
           // Save via dataSdk if available
