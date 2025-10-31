@@ -1,3 +1,4 @@
+<!-- Disusun berdasarkan index.html sumber: :contentReference[oaicite:0]{index=0} -->
 <!DOCTYPE html>
 <html lang="id" class="h-full">
   <head>
@@ -96,6 +97,39 @@
         margin-left: 1.5rem; /* menyamakan dengan .ml-6 pada hasil pemeriksaan */
       }
 
+      /* Dropdown searchable sederhana untuk dokter */
+      .search-select {
+        position: relative;
+      }
+      .search-select-input {
+        width: 100%;
+        padding: 0.5rem 0.75rem;
+        border: 1px solid #d1d5db;
+        border-radius: 0.375rem;
+        background: #fff;
+      }
+      .search-select-list {
+        position: absolute;
+        z-index: 50;
+        left: 0;
+        right: 0;
+        max-height: 180px;
+        overflow-y: auto;
+        background: white;
+        border: 1px solid rgba(0, 0, 0, 0.08);
+        border-radius: 0.375rem;
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+        margin-top: 6px;
+      }
+      .search-select-item {
+        padding: 8px 12px;
+        cursor: pointer;
+      }
+      .search-select-item:hover,
+      .search-select-item[aria-selected="true"] {
+        background: #f1f5f9;
+      }
+
       /* CETAK: ukuran kertas otomatis (biarkan browser/printer menentukan) */
       @media print {
         .no-print {
@@ -178,7 +212,7 @@
             Form Surat Keterangan Dokter
           </h2>
 
-          <form id="surat-form" class="space-y-6">
+          <form id="surat-form" class="space-y-6" autocomplete="off">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
               <!-- Data Pasien -->
               <div class="space-y-4">
@@ -527,75 +561,52 @@
                   </p>
                 </div>
 
+                <!-- Dokter searchable dropdown + auto-fill nomor identitas -->
                 <div>
-                  <label
-                    for="dokter_pemeriksa"
-                    class="block text-sm font-medium text-gray-700 mb-1"
+                  <label class="block text-sm font-medium text-gray-700 mb-1"
                     >Dokter Pemeriksa</label
                   >
-                  <input
-                    type="text"
-                    id="dokter_pemeriksa"
-                    name="dokter_pemeriksa"
-                    required
-                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                    placeholder="Nama dokter pemeriksa"
-                  />
-                </div>
 
-                <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-2"
-                    >NIP/NRPTT/No. SIP</label
+                  <div
+                    class="search-select"
+                    id="dokter-select"
+                    aria-haspopup="listbox"
                   >
-                  <div class="mb-3">
-                    <p class="text-xs text-gray-600 mb-2">
-                      Pilih kategori nomor identitas:
-                    </p>
-                    <div class="flex space-x-4">
-                      <label class="flex items-center">
-                        <input
-                          type="radio"
-                          name="kategori_nip"
-                          value="NIP"
-                          required
-                          class="mr-2 text-emerald-600 focus:ring-emerald-500"
-                          onchange="updateNipPlaceholder()"
-                        />
-                        <span class="text-sm text-gray-700">NIP</span>
-                      </label>
-                      <label class="flex items-center">
-                        <input
-                          type="radio"
-                          name="kategori_nip"
-                          value="NRPTT"
-                          required
-                          class="mr-2 text-emerald-600 focus:ring-emerald-500"
-                          onchange="updateNipPlaceholder()"
-                        />
-                        <span class="text-sm text-gray-700">NRPTT</span>
-                      </label>
-                      <label class="flex items-center">
-                        <input
-                          type="radio"
-                          name="kategori_nip"
-                          value="No. SIP"
-                          required
-                          class="mr-2 text-emerald-600 focus:ring-emerald-500"
-                          onchange="updateNipPlaceholder()"
-                        />
-                        <span class="text-sm text-gray-700">No. SIP</span>
-                      </label>
-                    </div>
+                    <input
+                      type="text"
+                      id="dokter_search"
+                      class="search-select-input"
+                      placeholder="Cari dan pilih nama dokter..."
+                      aria-label="Cari nama dokter"
+                      autocomplete="off"
+                    />
+                    <div
+                      id="dokter_list"
+                      class="search-select-list hidden"
+                      role="listbox"
+                      tabindex="-1"
+                    ></div>
                   </div>
 
+                  <!-- Hidden/readonly fields that will be auto-filled -->
                   <input
-                    type="text"
-                    id="nip_dokter"
-                    name="nip_dokter"
-                    required
-                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                    placeholder="Pilih kategori terlebih dahulu"
+                    type="hidden"
+                    id="dokter_pemeriksa"
+                    name="dokter_pemeriksa"
                   />
+                  <div class="mt-3">
+                    <label class="block text-sm font-medium text-gray-700 mb-1"
+                      >Nomor Identitas</label
+                    >
+                    <input
+                      type="text"
+                      id="nip_dokter"
+                      name="nip_dokter"
+                      readonly
+                      class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      placeholder="Otomatis terisi saat nama dokter dipilih"
+                    />
+                  </div>
                 </div>
 
                 <div>
@@ -816,9 +827,11 @@
                       margin-bottom: 4px;
                     "
                   ></p>
-                  <p>
-                    <span id="preview-kategori-nip">NIP</span>.
-                    <span id="preview-nip">196801011990031001</span>
+                  <p id="preview-nip-block">
+                    <span id="preview-kategori-nip"></span
+                    ><span id="preview-kategori-dot" style="display: none"
+                      >. </span
+                    ><span id="preview-nip"></span>
                   </p>
                 </div>
               </div>
@@ -878,6 +891,50 @@
         nama_dokter: "dr. Ahmad Syahrul, M.Kes",
         nip_dokter: "196801011990031001",
       };
+
+      // Daftar dokter (dari user)
+      const doctors = [
+        {
+          name: "dr. Utami Meilanie Putri",
+          idType: "NIP",
+          id: "19990514 202506 2 006",
+        },
+        {
+          name: "dr. Ernawaty Madi",
+          idType: "NIP",
+          id: "19810514 200604 2 009",
+        },
+        {
+          name: "dr. Wardina Fitria La Sara",
+          idType: "NRPTT",
+          id: "27.01.01.7471.25.20",
+        },
+        {
+          name: "dr. Nurul Ismira Kusumawardani",
+          idType: "NRPTT",
+          id: "23.05.01.7471.25.03",
+        },
+        {
+          name: "dr. Rizky Indah Vebrianty",
+          idType: "No. SIP",
+          id: "MK02012505002404",
+        },
+        {
+          name: "dr. Fadhilah Norman",
+          idType: "No. SIP",
+          id: "MK02012505002659",
+        },
+        {
+          name: "dr. Riska Rianti",
+          idType: "No. SIP",
+          id: "MK02012505002660",
+        },
+        {
+          name: "dr. Muhamad Ikram",
+          idType: "No. SIP",
+          id: "MK02012505002812",
+        },
+      ];
 
       let currentData = [];
       let currentRecordCount = 0;
@@ -944,39 +1001,13 @@
                   previewNip.textContent =
                     config.nip_dokter || defaultConfig.nip_dokter;
               },
-              mapToCapabilities: (config) => ({
-                recolorables: [
-                  {
-                    get: () => config.primary_color || "#059669",
-                    set: (value) => {
-                      if (window.elementSdk)
-                        window.elementSdk.setConfig({ primary_color: value });
-                    },
-                  },
-                ],
-                borderables: [],
-                fontEditable: undefined,
-                fontSizeable: undefined,
-              }),
+              mapToCapabilities: (config) => ({}),
               mapToEditPanelValues: (config) =>
                 new Map([
                   [
                     "nama_puskesmas",
                     config.nama_puskesmas || defaultConfig.nama_puskesmas,
                   ],
-                  [
-                    "alamat_puskesmas",
-                    config.alamat_puskesmas || defaultConfig.alamat_puskesmas,
-                  ],
-                  [
-                    "telepon_puskesmas",
-                    config.telepon_puskesmas || defaultConfig.telepon_puskesmas,
-                  ],
-                  [
-                    "nama_dokter",
-                    config.nama_dokter || defaultConfig.nama_dokter,
-                  ],
-                  ["nip_dokter", config.nip_dokter || defaultConfig.nip_dokter],
                 ]),
             });
           } catch (err) {
@@ -990,6 +1021,8 @@
           "tanggal_pemeriksaan"
         );
         if (tanggalPemeriksaanEl) tanggalPemeriksaanEl.value = today;
+
+        setupDokterSearch();
       }
 
       /* ---------- Utility & helper ---------- */
@@ -1044,23 +1077,140 @@
         }
       }
 
-      function updateNipPlaceholder() {
-        const selectedCategory = document.querySelector(
-          'input[name="kategori_nip"]:checked'
-        );
-        const nipInput = document.getElementById("nip_dokter");
-        if (!nipInput) return;
-        if (selectedCategory) {
-          const category = selectedCategory.value;
-          if (category === "NIP")
-            nipInput.placeholder = "Contoh: 196801011990031001";
-          else if (category === "NRPTT")
-            nipInput.placeholder = "Contoh: 123456789012345678";
-          else if (category === "No. SIP")
-            nipInput.placeholder = "Contoh: 503/SIP/DINKES/2025";
-          else nipInput.placeholder = "Pilih kategori terlebih dahulu";
-        } else {
-          nipInput.placeholder = "Pilih kategori terlebih dahulu";
+      /* ---------- Dokter searchable dropdown ---------- */
+      function setupDokterSearch() {
+        const input = document.getElementById("dokter_search");
+        const list = document.getElementById("dokter_list");
+        const hiddenDokter = document.getElementById("dokter_pemeriksa");
+        const nipEl = document.getElementById("nip_dokter");
+
+        function renderList(filter = "") {
+          const q = filter.trim().toLowerCase();
+          const matches = doctors.filter((d) =>
+            d.name.toLowerCase().includes(q)
+          );
+          if (matches.length === 0) {
+            list.innerHTML = `<div class="search-select-item">Tidak ada hasil</div>`;
+            list.classList.remove("hidden");
+            return;
+          }
+          list.innerHTML = matches
+            .map(
+              (d, idx) =>
+                `<div class="search-select-item" role="option" data-idx="${idx}" data-name="${escapeHtml(
+                  d.name
+                )}" data-id="${escapeHtml(d.id)}" data-idtype="${escapeHtml(
+                  d.idType
+                )}">${escapeHtml(
+                  d.name
+                )} <div class="text-xs text-gray-500">${escapeHtml(
+                  d.idType + " • " + d.id
+                )}</div></div>`
+            )
+            .join("");
+          list.classList.remove("hidden");
+        }
+
+        function closeList() {
+          list.classList.add("hidden");
+        }
+
+        function selectItemByElement(el) {
+          const name = el.getAttribute("data-name") || "";
+          const id = el.getAttribute("data-id") || "";
+          const idType = el.getAttribute("data-idtype") || "";
+          input.value = name;
+          if (hiddenDokter) hiddenDokter.value = name;
+          if (nipEl) {
+            // Tampilkan jenis + nomor di field readonly
+            nipEl.value = `${idType}. ${id}`;
+            nipEl.setAttribute("data-idtype", idType);
+            nipEl.setAttribute("data-id", id);
+          }
+          closeList();
+        }
+
+        input.addEventListener("input", (e) => {
+          const q = e.target.value || "";
+          if (!q) {
+            // jika kosong, sembunyikan list
+            list.classList.add("hidden");
+            // clear hidden dokter and nip
+            // (biarkan user mengetik manual jika ingin)
+            // hiddenDokter.value = "";
+            // nipEl.value = "";
+            return;
+          }
+          renderList(q);
+        });
+
+        // klik pada item
+        list.addEventListener("click", (ev) => {
+          const target = ev.target.closest(".search-select-item");
+          if (target) {
+            selectItemByElement(target);
+          }
+        });
+
+        // keyboard navigation & enter to select
+        input.addEventListener("keydown", (ev) => {
+          const visible = !list.classList.contains("hidden");
+          const items = Array.from(
+            list.querySelectorAll(".search-select-item")
+          );
+          if (!visible && ev.key === "ArrowDown") {
+            // show and focus first
+            renderList(input.value || "");
+            ev.preventDefault();
+            return;
+          }
+          if (!visible) return;
+          const currentIdx = items.findIndex(
+            (it) => it.getAttribute("aria-selected") === "true"
+          );
+          if (ev.key === "ArrowDown") {
+            ev.preventDefault();
+            const next = items[(currentIdx + 1) % items.length];
+            items.forEach((it) => it.removeAttribute("aria-selected"));
+            if (next) next.setAttribute("aria-selected", "true");
+            next?.scrollIntoView({ block: "nearest" });
+          } else if (ev.key === "ArrowUp") {
+            ev.preventDefault();
+            const prev = items[(currentIdx - 1 + items.length) % items.length];
+            items.forEach((it) => it.removeAttribute("aria-selected"));
+            if (prev) prev.setAttribute("aria-selected", "true");
+            prev?.scrollIntoView({ block: "nearest" });
+          } else if (ev.key === "Enter") {
+            ev.preventDefault();
+            const chosen =
+              items[currentIdx] ||
+              items.find((it) => it.getAttribute("aria-selected") === "true");
+            if (chosen) selectItemByElement(chosen);
+          } else if (ev.key === "Escape") {
+            closeList();
+          }
+        });
+
+        // klik di luar -> tutup
+        document.addEventListener("click", (ev) => {
+          if (!document.getElementById("dokter-select").contains(ev.target)) {
+            closeList();
+          }
+        });
+
+        // render full list on focus (optional)
+        input.addEventListener("focus", () => {
+          renderList(input.value || "");
+        });
+
+        // utility: escape HTML
+        function escapeHtml(str) {
+          return String(str)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
         }
       }
 
@@ -1128,7 +1278,12 @@
         );
         if (tanggalPemeriksaanEl) tanggalPemeriksaanEl.value = today;
         const nipInput = document.getElementById("nip_dokter");
-        if (nipInput) nipInput.placeholder = "Pilih kategori terlebih dahulu";
+        if (nipInput)
+          nipInput.placeholder = "Otomatis terisi saat nama dokter dipilih";
+        const dokterSearch = document.getElementById("dokter_search");
+        if (dokterSearch) dokterSearch.value = "";
+        const hiddenDokter = document.getElementById("dokter_pemeriksa");
+        if (hiddenDokter) hiddenDokter.value = "";
         const ageInput = document.getElementById("umur");
         if (ageInput) {
           ageInput.value = "";
@@ -1201,6 +1356,25 @@
           // Ambil status kesehatan dari radio (pastikan ada)
           data.status_kesehatan = formData.get("status_kesehatan") || "SEHAT";
 
+          // If doctor was selected via search, auto-fill kategori and nip if possible
+          const nipField = document.getElementById("nip_dokter");
+          if (nipField) {
+            const idAttr = nipField.getAttribute("data-id") || "";
+            const idTypeAttr = nipField.getAttribute("data-idtype") || "";
+            if (idAttr) {
+              data.nip_dokter = idAttr;
+              data.kategori_nip = idTypeAttr || "";
+              // For preview we want to show "TYPE. id"
+              data.nip_display = idTypeAttr
+                ? `${idTypeAttr}. ${idAttr}`
+                : idAttr;
+            } else {
+              // fallback to raw input if user typed something in hidden fields
+              data.nip_dokter = data.nip_dokter || "";
+              data.kategori_nip = data.kategori_nip || "";
+            }
+          }
+
           // Convert numeric fields safely
           data.umur = parseInt(data.umur) || 0;
           data.tinggi_badan = parseFloat(data.tinggi_badan) || 0;
@@ -1223,7 +1397,7 @@
           // Hasil pemeriksaan
           data.hasil_pemeriksaan = formatHasilPemeriksaan(data);
 
-          // Simpan melalui dataSdk (jika tersedia)
+          // Save via dataSdk if available
           if (window.dataSdk && typeof window.dataSdk.create === "function") {
             try {
               const saveResult = await window.dataSdk.create(data);
@@ -1240,6 +1414,19 @@
             }
           } else {
             showToast("Surat berhasil dibuat!", "success");
+          }
+
+          // Prepare data for preview
+          // Ensure preview shows full identity string
+          data.nip_dokter = data.nip_display || data.nip_dokter || "";
+          data.kategori_nip =
+            data.kategori_nip ||
+            (nipField ? nipField.getAttribute("data-idtype") || "" : "");
+
+          // If dokter_pemeriksa hidden is empty but dokter_search has value, use that
+          if (!data.dokter_pemeriksa) {
+            const ds = document.getElementById("dokter_search");
+            if (ds && ds.value) data.dokter_pemeriksa = ds.value;
           }
 
           // Update preview & tampilkan preview
@@ -1313,8 +1500,6 @@
 
           // Clone node to avoid modifying original displayed content (and to hide no-print if needed)
           const clone = content.cloneNode(true);
-          // Optionally remove action buttons or other no-print elements from clone
-          // (they are outside content anyway; clone only content)
           const wrapper = document.createElement("div");
           wrapper.style.background = "white";
           wrapper.appendChild(clone);
@@ -1353,6 +1538,157 @@
           'input[name="status_kesehatan"][value="SEHAT"]'
         );
         if (defaultStatus) defaultStatus.checked = true;
+      });
+    </script>
+
+    <!-- Patch: prevent duplicated identity labels (kategori + nomor) in preview -->
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        function updateNipPreview() {
+          var kategoriEl = document.getElementById("preview-kategori-nip");
+          var kategoriDotEl = document.getElementById("preview-kategori-dot");
+          var nipEl = document.getElementById("preview-nip");
+          if (!nipEl) return;
+          // Try to find input that holds doctor id info
+          var nipField =
+            document.getElementById("nip_dokter") ||
+            document.querySelector('[name="nip_dokter"]') ||
+            document.querySelector("input[data-id][data-idtype]");
+          var kategori = "";
+          var nipNumber = "";
+          if (nipField) {
+            // Prefer data attributes if present
+            var dataId = nipField.getAttribute("data-id") || "";
+            var dataIdType = nipField.getAttribute("data-idtype") || "";
+            var value = (nipField.value || "").trim();
+            if (dataId) {
+              kategori = dataIdType || "";
+              nipNumber = dataId;
+            } else if (value) {
+              // try parse "TYPE. number"
+              var m = value.match(/^(.+?)\.\s*(.+)$/);
+              if (m) {
+                kategori = m[1].trim();
+                nipNumber = m[2].trim();
+              } else {
+                // if value contains repeated word like "NIP. NIP. 1968" remove duplicates
+                var parts = value.split(/\s+/);
+                if (
+                  parts.length > 1 &&
+                  parts[0].toUpperCase().replace(/\W/g, "") ===
+                    parts[1].toUpperCase().replace(/\W/g, "")
+                ) {
+                  // drop the duplicate token
+                  parts.splice(1, 1);
+                  nipNumber = parts.slice(1).join(" ").trim();
+                  kategori = parts[0];
+                } else {
+                  // fallback: if value starts with letters and then digits, try separate
+                  var m2 = value.match(
+                    /^([A-Za-z\.\s]+)\s+([0-9A-Za-z\-\/]+.*)$/
+                  );
+                  if (m2) {
+                    kategori = m2[1].trim();
+                    nipNumber = m2[2].trim();
+                  } else {
+                    // treat all as nip number
+                    kategori = "";
+                    nipNumber = value;
+                  }
+                }
+              }
+            }
+          } else {
+            // fallback: try to read existing preview content and sanitize duplicates
+            var existingKategori =
+              kategoriEl && kategoriEl.textContent
+                ? kategoriEl.textContent.trim()
+                : "";
+            var existingNip =
+              nipEl && nipEl.textContent ? nipEl.textContent.trim() : "";
+            if (existingKategori && existingNip) {
+              kategori = existingKategori;
+              nipNumber = existingNip;
+            } else {
+              // nothing to do
+              return;
+            }
+          }
+
+          // set elements
+          if (kategoriEl) kategoriEl.textContent = kategori;
+          if (nipEl) nipEl.textContent = nipNumber || "";
+          if (kategoriDotEl) {
+            if (kategori && nipNumber) kategoriDotEl.style.display = "inline";
+            else kategoriDotEl.style.display = "none";
+          }
+        }
+
+        // Update on input/change for common fields
+        var watchers = [];
+        var f = document.getElementById("nip_dokter");
+        if (f) watchers.push(f);
+        // also watch for any input with data-id/data-idtype
+        var els = document.querySelectorAll(
+          "input[data-id], input[data-idtype]"
+        );
+        els.forEach(function (e) {
+          if (watchers.indexOf(e) === -1) watchers.push(e);
+        });
+
+        watchers.forEach(function (el) {
+          el.addEventListener("input", updateNipPreview);
+          el.addEventListener("change", updateNipPreview);
+        });
+
+        // Also observe DOM changes in case another script updates attributes like data-id dynamically
+        var observer = new MutationObserver(function (muts) {
+          muts.forEach(function (m) {
+            if (
+              m.type === "attributes" &&
+              (m.attributeName === "data-id" ||
+                m.attributeName === "data-idtype" ||
+                m.attributeName === "value")
+            ) {
+              updateNipPreview();
+            }
+          });
+        });
+        watchers.forEach(function (w) {
+          observer.observe(w, {
+            attributes: true,
+            childList: false,
+            subtree: false,
+          });
+        });
+
+        // Initial call
+        updateNipPreview();
+
+        // If the page has a global function that updates preview (like updatePreview), try to wrap it to run after
+        try {
+          if (typeof updatePreview === "function") {
+            var orig = updatePreview;
+            updatePreview = function (data) {
+              try {
+                orig(data);
+              } catch (e) {
+                console.warn("original updatePreview error", e);
+              }
+              try {
+                updateNipPreview();
+              } catch (e) {
+                console.warn("nip preview patch error", e);
+              }
+            };
+          }
+        } catch (e) {
+          /* ignore */
+        }
+
+        // Also update before print
+        window.addEventListener("beforeprint", updateNipPreview);
+        window.addEventListener("afterprint", updateNipPreview);
       });
     </script>
   </body>
