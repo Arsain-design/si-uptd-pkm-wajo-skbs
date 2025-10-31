@@ -1,0 +1,1359 @@
+<!DOCTYPE html>
+<html lang="id" class="h-full">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Generate Surat Keterangan Dokter - UPTD Puskesmas Wajo</title>
+
+    <!-- Tailwind (CDN) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- (Opsional) SDK -->
+    <script src="/_sdk/data_sdk.js"></script>
+    <script src="/_sdk/element_sdk.js"></script>
+
+    <!-- html2pdf (untuk Unduh PDF) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.2/html2pdf.bundle.min.js"></script>
+
+    <style>
+      /* Reset / tipografi dasar */
+      html,
+      body,
+      * {
+        box-sizing: border-box;
+        font-family: Arial, sans-serif;
+      }
+      body.h-full {
+        min-height: 100vh;
+      }
+
+      /* Latar & layout */
+      .kop-surat {
+        border-bottom: 4px solid #000;
+        padding-bottom: 20px;
+        margin-bottom: 35px;
+        line-height: 1;
+      }
+      .judul-surat {
+        margin-top: 15px;
+        margin-bottom: 30px;
+      }
+      .signature-area {
+        margin-top: 40px;
+        text-align: right;
+        line-height: 1;
+      }
+
+      /* Spinner loading kecil */
+      .loading-spinner {
+        border: 2px solid #f3f4f6;
+        border-top: 2px solid #059669;
+        border-radius: 50%;
+        width: 20px;
+        height: 20px;
+        animation: spin 1s linear infinite;
+      }
+      @keyframes spin {
+        from {
+          transform: rotate(0deg);
+        }
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      /* Tampilan (desktop) untuk preview container */
+      .surat-container {
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+        background: white;
+        padding: 20mm;
+        margin: 0 auto;
+        max-width: 900px;
+      }
+
+      .logo-container {
+        width: 1.4cm;
+        height: 1.4cm;
+        flex-shrink: 0;
+      }
+      .logo-container img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+      }
+
+      /* Utilities */
+      .w-32 {
+        width: 8rem;
+      }
+      .inline-block {
+        display: inline-block;
+      }
+
+      /* --- Perubahan: buat margin kiri data pasien sama dengan margin hasil pemeriksaan --- */
+      /* Tailwind utility .ml-6 = 1.5rem = 24px */
+      .data-pasien {
+        margin-left: 1.5rem; /* menyamakan dengan .ml-6 pada hasil pemeriksaan */
+      }
+
+      /* CETAK: ukuran kertas otomatis (biarkan browser/printer menentukan) */
+      @media print {
+        .no-print {
+          display: none !important;
+        }
+        .print-only {
+          display: block !important;
+        }
+        body {
+          background: white !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          -webkit-print-color-adjust: exact !important;
+          color-adjust: exact !important;
+        }
+        /* Minta browser untuk menggunakan ukuran halaman otomatis; margin standar printer/print dialog akan berlaku */
+        @page {
+          size: 216mm 356mm; /* legal */
+          margin: 10mm;
+        }
+        /* Pastikan konten menyesuaikan lebar kertas */
+        .surat-container {
+          box-shadow: none;
+          padding: 10mm;
+          width: auto !important;
+          max-width: 100% !important;
+          height: auto !important;
+          max-height: none !important;
+          font-size: 12pt;
+          line-height: 1.4;
+          box-sizing: border-box;
+        }
+        a,
+        button,
+        input,
+        textarea,
+        select {
+          -webkit-print-color-adjust: exact;
+        }
+      }
+    </style>
+  </head>
+
+  <body
+    class="h-full bg-gradient-to-br from-emerald-50 to-teal-50"
+    style="font-family: Arial, sans-serif"
+  >
+    <div class="min-h-full">
+      <!-- Header -->
+      <header
+        class="bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg no-print"
+      >
+        <div class="max-w-7xl mx-auto px-4 py-6">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center">
+              <img
+                src="https://iili.io/KgOqkzP.png"
+                alt="Logo Puskesmas Wajo"
+                class="w-16 h-16 mr-4"
+                onerror="this.src=''; this.alt='Logo gagal dimuat'; this.style.display='none';"
+              />
+              <div>
+                <h1 class="text-2xl font-bold" id="header-title">
+                  Generate Surat Keterangan Dokter
+                </h1>
+                <p class="text-emerald-100" id="header-subtitle">
+                  UPTD Puskesmas Wajo
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <!-- Main Content -->
+      <main class="max-w-7xl mx-auto px-4 py-8">
+        <!-- Form Input -->
+        <div id="form-section" class="bg-white rounded-lg shadow-md p-6 mb-8">
+          <h2 class="text-xl font-bold text-gray-800 mb-6">
+            Form Surat Keterangan Dokter
+          </h2>
+
+          <form id="surat-form" class="space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <!-- Data Pasien -->
+              <div class="space-y-4">
+                <h3 class="text-lg font-semibold text-gray-700 border-b pb-2">
+                  Data Pasien
+                </h3>
+
+                <div>
+                  <label
+                    for="nomor_surat_manual"
+                    class="block text-sm font-medium text-gray-700 mb-1"
+                    >Nomor Surat</label
+                  >
+                  <div class="flex items-center">
+                    <span
+                      class="bg-emerald-100 text-emerald-800 px-3 py-2 border border-r-0 border-emerald-300 rounded-l-md font-medium"
+                      >400.7.22.1/</span
+                    >
+                    <input
+                      type="text"
+                      id="nomor_surat_manual"
+                      name="nomor_surat_manual"
+                      class="flex-1 px-3 py-2 border border-emerald-300 rounded-r-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      placeholder="Masukkan nomor terakhir"
+                    />
+                  </div>
+                  <p class="text-xs text-gray-500 mt-1">
+                    Isi bagian setelah 400.7.22.1/ atau kosongkan untuk nomor
+                    otomatis
+                  </p>
+                </div>
+
+                <div>
+                  <label
+                    for="nama_pasien"
+                    class="block text-sm font-medium text-gray-700 mb-1"
+                    >Nama</label
+                  >
+                  <input
+                    type="text"
+                    id="nama_pasien"
+                    name="nama_pasien"
+                    required
+                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    placeholder="Masukkan nama"
+                  />
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                  <div>
+                    <label
+                      for="tempat_lahir"
+                      class="block text-sm font-medium text-gray-700 mb-1"
+                      >Tempat Lahir</label
+                    >
+                    <input
+                      type="text"
+                      id="tempat_lahir"
+                      name="tempat_lahir"
+                      required
+                      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      placeholder="Kota lahir"
+                    />
+                  </div>
+                  <div>
+                    <label
+                      for="tanggal_lahir"
+                      class="block text-sm font-medium text-gray-700 mb-1"
+                      >Tanggal Lahir</label
+                    >
+                    <input
+                      type="date"
+                      id="tanggal_lahir"
+                      name="tanggal_lahir"
+                      required
+                      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      onchange="calculateAge()"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label
+                    for="umur"
+                    class="block text-sm font-medium text-gray-700 mb-1"
+                    >Umur</label
+                  >
+                  <input
+                    type="number"
+                    id="umur"
+                    name="umur"
+                    required
+                    min="1"
+                    max="120"
+                    readonly
+                    class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    placeholder="Akan terisi otomatis setelah input tanggal lahir"
+                  />
+                </div>
+
+                <div>
+                  <label
+                    for="jenis_kelamin"
+                    class="block text-sm font-medium text-gray-700 mb-1"
+                    >Jenis Kelamin</label
+                  >
+                  <select
+                    id="jenis_kelamin"
+                    name="jenis_kelamin"
+                    required
+                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  >
+                    <option value="">Pilih jenis kelamin</option>
+                    <option value="Laki-laki">Laki-laki</option>
+                    <option value="Perempuan">Perempuan</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label
+                    for="alamat"
+                    class="block text-sm font-medium text-gray-700 mb-1"
+                    >Alamat</label
+                  >
+                  <textarea
+                    id="alamat"
+                    name="alamat"
+                    required
+                    rows="3"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    placeholder="Alamat lengkap"
+                  ></textarea>
+                </div>
+
+                <div>
+                  <label
+                    for="pekerjaan"
+                    class="block text-sm font-medium text-gray-700 mb-1"
+                    >Pekerjaan</label
+                  >
+                  <input
+                    type="text"
+                    id="pekerjaan"
+                    name="pekerjaan"
+                    required
+                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    placeholder="Pekerjaan saat ini"
+                  />
+                </div>
+              </div>
+
+              <!-- Data Pemeriksaan -->
+              <div class="space-y-4">
+                <h3 class="text-lg font-semibold text-gray-700 border-b pb-2">
+                  Data Pemeriksaan
+                </h3>
+
+                <div>
+                  <label
+                    for="keperluan"
+                    class="block text-sm font-medium text-gray-700 mb-1"
+                    >Keperluan</label
+                  >
+                  <textarea
+                    id="keperluan"
+                    name="keperluan"
+                    required
+                    rows="3"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    placeholder="Masukkan keperluan surat keterangan sehat"
+                  ></textarea>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                  <div>
+                    <label
+                      for="tinggi_badan"
+                      class="block text-sm font-medium text-gray-700 mb-1"
+                      >Tinggi Badan (cm)</label
+                    >
+                    <input
+                      type="number"
+                      id="tinggi_badan"
+                      name="tinggi_badan"
+                      required
+                      min="50"
+                      max="250"
+                      step="0.1"
+                      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      placeholder="170"
+                    />
+                  </div>
+                  <div>
+                    <label
+                      for="berat_badan"
+                      class="block text-sm font-medium text-gray-700 mb-1"
+                      >Berat Badan (kg)</label
+                    >
+                    <input
+                      type="number"
+                      id="berat_badan"
+                      name="berat_badan"
+                      required
+                      min="10"
+                      max="300"
+                      step="0.1"
+                      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      placeholder="65"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1"
+                    >Tekanan Darah (mmHg)</label
+                  >
+                  <div class="flex items-center space-x-3">
+                    <input
+                      type="number"
+                      id="tekanan_sistolik"
+                      name="tekanan_sistolik"
+                      required
+                      min="60"
+                      max="250"
+                      class="w-24 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      placeholder="120"
+                    />
+                    <span class="text-gray-500 font-medium">/</span>
+                    <input
+                      type="number"
+                      id="tekanan_diastolik"
+                      name="tekanan_diastolik"
+                      required
+                      min="40"
+                      max="150"
+                      class="w-24 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      placeholder="80"
+                    />
+                    <span class="text-sm text-gray-500">mmHg</span>
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                  <div>
+                    <label
+                      for="nadi"
+                      class="block text-sm font-medium text-gray-700 mb-1"
+                      >Nadi (x/menit)</label
+                    >
+                    <input
+                      type="number"
+                      id="nadi"
+                      name="nadi"
+                      required
+                      min="40"
+                      max="200"
+                      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      placeholder="72"
+                    />
+                  </div>
+                  <div>
+                    <label
+                      for="suhu"
+                      class="block text-sm font-medium text-gray-700 mb-1"
+                      >Suhu Tubuh (°C)</label
+                    >
+                    <input
+                      type="number"
+                      id="suhu"
+                      name="suhu"
+                      required
+                      min="30"
+                      max="45"
+                      step="0.1"
+                      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      placeholder="36.5"
+                    />
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                  <div>
+                    <label
+                      for="laju_pernapasan"
+                      class="block text-sm font-medium text-gray-700 mb-1"
+                      >Laju Pernapasan (x/menit)</label
+                    >
+                    <input
+                      type="number"
+                      id="laju_pernapasan"
+                      name="laju_pernapasan"
+                      required
+                      min="10"
+                      max="50"
+                      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      placeholder="18"
+                    />
+                  </div>
+                  <div>
+                    <label
+                      for="buta_warna"
+                      class="block text-sm font-medium text-gray-600 mb-1"
+                      >Buta Warna</label
+                    >
+                    <select
+                      id="buta_warna"
+                      name="buta_warna"
+                      required
+                      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    >
+                      <option value="">Pilih status buta warna</option>
+                      <option value="Tidak">Tidak</option>
+                      <option value="Ya">Ya</option>
+                    </select>
+                  </div>
+                </div>
+
+                <!-- STATUS: baru, di atas Dokter Pemeriksa -->
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-2"
+                    >Status Pemeriksaan</label
+                  >
+                  <div class="flex items-center space-x-4">
+                    <label class="flex items-center">
+                      <input
+                        type="radio"
+                        name="status_kesehatan"
+                        value="SEHAT"
+                        class="mr-2 text-emerald-600 focus:ring-emerald-500"
+                        checked
+                      />
+                      <span class>Sehat</span>
+                    </label>
+                    <label class="flex items-center">
+                      <input
+                        type="radio"
+                        name="status_kesehatan"
+                        value="TIDAK SEHAT"
+                        class="mr-2 text-red-600 focus:ring-red-500"
+                      />
+                      <span class>Tidak Sehat</span>
+                    </label>
+                  </div>
+                  <p class="text-xs text-gray-500 mt-1">
+                    Pilihlah salah satu dari status pemeriksaannya.
+                  </p>
+                </div>
+
+                <div>
+                  <label
+                    for="dokter_pemeriksa"
+                    class="block text-sm font-medium text-gray-700 mb-1"
+                    >Dokter Pemeriksa</label
+                  >
+                  <input
+                    type="text"
+                    id="dokter_pemeriksa"
+                    name="dokter_pemeriksa"
+                    required
+                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    placeholder="Nama dokter pemeriksa"
+                  />
+                </div>
+
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-2"
+                    >NIP/NRPTT/No. SIP</label
+                  >
+                  <div class="mb-3">
+                    <p class="text-xs text-gray-600 mb-2">
+                      Pilih kategori nomor identitas:
+                    </p>
+                    <div class="flex space-x-4">
+                      <label class="flex items-center">
+                        <input
+                          type="radio"
+                          name="kategori_nip"
+                          value="NIP"
+                          required
+                          class="mr-2 text-emerald-600 focus:ring-emerald-500"
+                          onchange="updateNipPlaceholder()"
+                        />
+                        <span class="text-sm text-gray-700">NIP</span>
+                      </label>
+                      <label class="flex items-center">
+                        <input
+                          type="radio"
+                          name="kategori_nip"
+                          value="NRPTT"
+                          required
+                          class="mr-2 text-emerald-600 focus:ring-emerald-500"
+                          onchange="updateNipPlaceholder()"
+                        />
+                        <span class="text-sm text-gray-700">NRPTT</span>
+                      </label>
+                      <label class="flex items-center">
+                        <input
+                          type="radio"
+                          name="kategori_nip"
+                          value="No. SIP"
+                          required
+                          class="mr-2 text-emerald-600 focus:ring-emerald-500"
+                          onchange="updateNipPlaceholder()"
+                        />
+                        <span class="text-sm text-gray-700">No. SIP</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <input
+                    type="text"
+                    id="nip_dokter"
+                    name="nip_dokter"
+                    required
+                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    placeholder="Pilih kategori terlebih dahulu"
+                  />
+                </div>
+
+                <div>
+                  <label
+                    for="tanggal_pemeriksaan"
+                    class="block text-sm font-medium text-gray-700 mb-1"
+                    >Tanggal Pemeriksaan</label
+                  >
+                  <input
+                    type="date"
+                    id="tanggal_pemeriksaan"
+                    name="tanggal_pemeriksaan"
+                    required
+                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div class="flex justify-end space-x-4 pt-6 border-t">
+              <button
+                type="button"
+                onclick="resetForm()"
+                class="px-6 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
+              >
+                Reset
+              </button>
+              <button
+                type="submit"
+                id="submit-btn"
+                class="px-6 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 transition-colors flex items-center"
+              >
+                <span id="submit-text">Buat Surat</span>
+                <div
+                  id="submit-loading"
+                  class="loading-spinner ml-2 hidden"
+                ></div>
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Preview Surat -->
+        <div id="preview-section" class="hidden">
+          <div
+            class="surat-container text-base leading-relaxed"
+            id="surat-content"
+            style="font-size: 12pt; line-height: 1.4"
+          >
+            <!-- Kop Surat -->
+            <div class="kop-surat">
+              <div class="flex items-center justify-center">
+                <div
+                  class="mr-4 logo-container"
+                  style="width: 1.4cm; height: 1.4cm"
+                >
+                  <img
+                    src="https://iili.io/K4eaegs.png"
+                    alt="Logo Kota Baubau"
+                    class="w-full h-full object-contain"
+                    onerror="this.src=''; this.alt='Logo gagal dimuat'; this.style.display='none';"
+                  />
+                </div>
+
+                <div class="text-center" style="line-height: 1.2">
+                  <h1
+                    class="text-gray-800"
+                    style="font-size: 14pt; font-weight: normal"
+                  >
+                    PEMERINTAH KOTA BAUBAU
+                  </h1>
+                  <h2
+                    class="text-gray-800"
+                    style="font-size: 14pt; font-weight: normal"
+                  >
+                    DINAS KESEHATAN
+                  </h2>
+                  <h3
+                    id="preview-nama-puskesmas"
+                    class="font-bold text-gray-800"
+                    style="font-size: 16pt; font-weight: bold"
+                  >
+                    UPTD PUSKESMAS WAJO
+                  </h3>
+                  <p
+                    id="preview-alamat-puskesmas"
+                    class="text-gray-600"
+                    style="font-size: 10pt"
+                  >
+                    Jl. Dr. Wahidin No. 137, Lamangga, Murhum, Baubau, Sulawesi
+                    Tenggara 93725
+                  </p>
+                  <p
+                    id="preview-telepon-puskesmas"
+                    class="text-gray-600"
+                    style="font-size: 10pt"
+                  >
+                    Telp. (0402) 2822829, Pos-el: puskesmaswajo@gmail.com
+                  </p>
+                </div>
+
+                <div
+                  class="ml-4 logo-container"
+                  style="width: 1.4cm; height: 1.4cm"
+                >
+                  <img
+                    src="https://iili.io/K4e0Umv.jpg"
+                    alt="Logo Dinas Kesehatan"
+                    class="w-full h-full object-contain"
+                    onerror="this.src=''; this.alt='Logo gagal dimuat'; this.style.display='none';"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <!-- Judul Surat -->
+            <div class="text-center judul-surat" style="line-height: 1">
+              <h2
+                class="font-bold text-gray-800 underline"
+                style="font-size: 12pt; font-weight: bold; margin-bottom: 6pt"
+              >
+                SURAT KETERANGAN DOKTER
+              </h2>
+              <div
+                id="preview-nomor-surat"
+                class="font-medium"
+                style="font-size: 12pt"
+              >
+                Nomor : 400.7.22.1/001/SKS/PKM-WJ/01/2024
+              </div>
+            </div>
+
+            <!-- Isi Surat -->
+            <div class="isi-surat" style="font-size: 12pt; line-height: 1.4">
+              <p style="margin-bottom: 12px; text-align: justify">
+                Yang bertanda tangan dibawah ini adalah Dokter yang bertugas di
+                UPTD Puskesmas Wajo menerangkan bahwa :
+              </p>
+
+              <div class="data-pasien" style="font-size: 12pt">
+                <div class="flex" style="margin-bottom: 3px">
+                  <span class="w-32 inline-block">Nama</span
+                  ><span class="mr-2">:</span
+                  ><span id="preview-nama" class="font-medium"></span>
+                </div>
+                <div class="flex" style="margin-bottom: 3px">
+                  <span class="w-32 inline-block">Umur</span
+                  ><span class="mr-2">:</span><span id="preview-umur"></span>
+                </div>
+                <div class="flex" style="margin-bottom: 3px">
+                  <span class="w-32 inline-block">Tempat, Tgl Lahir</span
+                  ><span class="mr-2">:</span><span id="preview-ttl"></span>
+                </div>
+                <div class="flex" style="margin-bottom: 3px">
+                  <span class="w-32 inline-block">Jenis Kelamin</span
+                  ><span class="mr-2">:</span><span id="preview-jk"></span>
+                </div>
+                <div class="flex" style="margin-bottom: 3px">
+                  <span class="w-32 inline-block">Alamat</span
+                  ><span class="mr-2">:</span
+                  ><span id="preview-alamat-pasien"></span>
+                </div>
+                <div class="flex" style="margin-bottom: 3px">
+                  <span class="w-32 inline-block">Pekerjaan</span
+                  ><span class="mr-2">:</span
+                  ><span id="preview-pekerjaan-pasien"></span>
+                </div>
+              </div>
+
+              <p style="padding: 0px; margin: 25px 0; text-align: justify">
+                Setelah dilakukan pemeriksaan fisik oleh Dokter, kepada yang
+                bersangkutan dinyatakan
+                <strong id="preview-status">SEHAT</strong>.
+              </p>
+
+              <p style="margin: 12px 0; text-align: justify">
+                Surat keterangan ini digunakan untuk
+                <span
+                  id="preview-keperluan-pasien"
+                  class="font-medium"
+                  style="font-weight: bold"
+                ></span
+                >.
+              </p>
+
+              <div
+                class="hasil-pemeriksaan"
+                style="padding: 10px; margin: 15px 0"
+              >
+                <p style="margin-bottom: 8px; font-size: 12pt">
+                  Hasil Pemeriksaan Fisik :
+                </p>
+                <div class="ml-6" id="preview-hasil-container"></div>
+              </div>
+
+              <p style="margin: 12px 0; text-align: justify">
+                Demikian surat keterangan ini dibuat dengan sebenarnya untuk
+                dapat dipergunakan sebagaimana mestinya.
+              </p>
+            </div>
+
+            <!-- Tanda Tangan -->
+            <div class="signature-area text-right" style="font-size: 12pt">
+              <div class="text-center inline-block">
+                <p style="margin-bottom: 4px">
+                  Baubau, <span id="preview-tanggal-surat"></span>
+                </p>
+                <p style="margin-bottom: 40px">Dokter UPTD Puskesmas Wajo,</p>
+
+                <div class="inline-block">
+                  <div style="height: 40px; margin-bottom: 8px"></div>
+                  <p
+                    id="preview-dokter"
+                    class="font-bold underline"
+                    style="
+                      font-weight: bold;
+                      text-decoration: underline;
+                      margin-bottom: 4px;
+                    "
+                  ></p>
+                  <p>
+                    <span id="preview-kategori-nip">NIP</span>.
+                    <span id="preview-nip">196801011990031001</span>
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="flex justify-center space-x-4 mt-6 no-print">
+            <button
+              id="download-pdf-btn"
+              onclick="downloadPDF()"
+              class="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors flex items-center"
+            >
+              <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                <path
+                  d="M9 2a1 1 0 00-1 1v6H5a1 1 0 000 2h3v6a1 1 0 002 0v-6h3a1 1 0 100-2H10V3a1 1 0 00-1-1z"
+                />
+              </svg>
+              Unduh PDF
+              <div
+                id="download-loading"
+                class="loading-spinner ml-2 hidden"
+              ></div>
+            </button>
+
+            <button
+              onclick="printSurat()"
+              class="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors flex items-center"
+            >
+              <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                <path
+                  d="M5 4v3H4a2 2 0 00-2 2v3a2 2 0 002 2h1v2a2 2 0 002 2h6a2 2 0 002-2v-2h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2z"
+                />
+              </svg>
+              Cetak Surat
+            </button>
+
+            <button
+              onclick="showForm()"
+              class="px-6 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 transition-colors"
+            >
+              ← Kembali ke Form
+            </button>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <script>
+      /* ---------- Konfigurasi default ---------- */
+      const defaultConfig = {
+        nama_puskesmas: "UPTD PUSKESMAS WAJO",
+        alamat_puskesmas:
+          "Jl. Dr. Wahidin No. 137, Lamangga, Murhum, Baubau, Sulawesi Tenggara 93725",
+        telepon_puskesmas:
+          "Telp. (0402) 2822829, Pos-el: puskesmaswajo@gmail.com",
+        nama_dokter: "dr. Ahmad Syahrul, M.Kes",
+        nip_dokter: "196801011990031001",
+      };
+
+      let currentData = [];
+      let currentRecordCount = 0;
+
+      /* Data handler (jika dataSdk ada) */
+      const dataHandler = {
+        onDataChanged(data) {
+          currentData = Array.isArray(data) ? data : [];
+          currentRecordCount = currentData.length || 0;
+        },
+      };
+
+      async function initializeApp() {
+        if (window.dataSdk && typeof window.dataSdk.init === "function") {
+          try {
+            const result = await window.dataSdk.init(dataHandler);
+            if (!result?.isOk) {
+              showToast("Gagal menginisialisasi sistem penyimpanan", "error");
+            }
+          } catch (err) {
+            console.warn("dataSdk init error:", err);
+          }
+        }
+
+        if (window.elementSdk && typeof window.elementSdk.init === "function") {
+          try {
+            await window.elementSdk.init({
+              defaultConfig,
+              onConfigChange: async (config) => {
+                const headerTitle = document.getElementById("header-title");
+                const headerSubtitle =
+                  document.getElementById("header-subtitle");
+                if (headerTitle)
+                  headerTitle.textContent = "Generate Surat Keterangan Dokter";
+                if (headerSubtitle)
+                  headerSubtitle.textContent =
+                    config.nama_puskesmas || defaultConfig.nama_puskesmas;
+
+                const previewNamaPuskesmas = document.getElementById(
+                  "preview-nama-puskesmas"
+                );
+                const previewAlamatPuskesmas = document.getElementById(
+                  "preview-alamat-puskesmas"
+                );
+                const previewTeleponPuskesmas = document.getElementById(
+                  "preview-telepon-puskesmas"
+                );
+                const previewDokter = document.getElementById("preview-dokter");
+                const previewNip = document.getElementById("preview-nip");
+
+                if (previewNamaPuskesmas)
+                  previewNamaPuskesmas.textContent =
+                    config.nama_puskesmas || defaultConfig.nama_puskesmas;
+                if (previewAlamatPuskesmas)
+                  previewAlamatPuskesmas.textContent =
+                    config.alamat_puskesmas || defaultConfig.alamat_puskesmas;
+                if (previewTeleponPuskesmas)
+                  previewTeleponPuskesmas.textContent =
+                    config.telepon_puskesmas || defaultConfig.telepon_puskesmas;
+                if (previewDokter)
+                  previewDokter.textContent =
+                    config.nama_dokter || defaultConfig.nama_dokter;
+                if (previewNip)
+                  previewNip.textContent =
+                    config.nip_dokter || defaultConfig.nip_dokter;
+              },
+              mapToCapabilities: (config) => ({
+                recolorables: [
+                  {
+                    get: () => config.primary_color || "#059669",
+                    set: (value) => {
+                      if (window.elementSdk)
+                        window.elementSdk.setConfig({ primary_color: value });
+                    },
+                  },
+                ],
+                borderables: [],
+                fontEditable: undefined,
+                fontSizeable: undefined,
+              }),
+              mapToEditPanelValues: (config) =>
+                new Map([
+                  [
+                    "nama_puskesmas",
+                    config.nama_puskesmas || defaultConfig.nama_puskesmas,
+                  ],
+                  [
+                    "alamat_puskesmas",
+                    config.alamat_puskesmas || defaultConfig.alamat_puskesmas,
+                  ],
+                  [
+                    "telepon_puskesmas",
+                    config.telepon_puskesmas || defaultConfig.telepon_puskesmas,
+                  ],
+                  [
+                    "nama_dokter",
+                    config.nama_dokter || defaultConfig.nama_dokter,
+                  ],
+                  ["nip_dokter", config.nip_dokter || defaultConfig.nip_dokter],
+                ]),
+            });
+          } catch (err) {
+            console.warn("elementSdk init error:", err);
+          }
+        }
+
+        // Atur default tanggal pemeriksaan hari ini (jika input ada)
+        const today = new Date().toISOString().split("T")[0];
+        const tanggalPemeriksaanEl = document.getElementById(
+          "tanggal_pemeriksaan"
+        );
+        if (tanggalPemeriksaanEl) tanggalPemeriksaanEl.value = today;
+      }
+
+      /* ---------- Utility & helper ---------- */
+      function generateNomorSuratSuffix() {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, "0");
+        const sequence = String(currentRecordCount + 1).padStart(3, "0");
+        return `${sequence}/SKS/PKM-WJ/${month}/${year}`;
+      }
+
+      function formatHasilPemeriksaan(data) {
+        return `Tinggi Badan: ${data.tinggi_badan} cm\nBerat Badan: ${data.berat_badan} kg\nTekanan Darah: ${data.tekanan_sistolik}/${data.tekanan_diastolik} mmHg\nNadi: ${data.nadi} x/menit\nSuhu: ${data.suhu}°C\nLaju Pernapasan: ${data.laju_pernapasan} x/menit\nButa Warna: ${data.buta_warna}`;
+      }
+
+      function updateHasilPemeriksaan(data) {
+        const container = document.getElementById("preview-hasil-container");
+        if (!container) return;
+        container.innerHTML = `
+          <div class="flex" style="margin-bottom:3px;"><span class="w-32 inline-block">Tinggi Badan</span><span class="mr-2">:</span><span>${data.tinggi_badan} cm</span></div>
+          <div class="flex" style="margin-bottom:3px;"><span class="w-32 inline-block">Berat Badan</span><span class="mr-2">:</span><span>${data.berat_badan} kg</span></div>
+          <div class="flex" style="margin-bottom:3px;"><span class="w-32 inline-block">Tekanan Darah</span><span class="mr-2">:</span><span>${data.tekanan_sistolik}/${data.tekanan_diastolik} mmHg</span></div>
+          <div class="flex" style="margin-bottom:3px;"><span class="w-32 inline-block">Nadi</span><span class="mr-2">:</span><span>${data.nadi} x/menit</span></div>
+          <div class="flex" style="margin-bottom:3px;"><span class="w-32 inline-block">Suhu</span><span class="mr-2">:</span><span>${data.suhu}°C</span></div>
+          <div class="flex" style="margin-bottom:3px;"><span class="w-32 inline-block">Laju Pernapasan</span><span class="mr-2">:</span><span>${data.laju_pernapasan} x/menit</span></div>
+          <div class="flex" style="margin-bottom:3px;"><span class="w-32 inline-block">Buta Warna</span><span class="mr-2">:</span><span>${data.buta_warna}</span></div>
+        `;
+      }
+
+      function calculateAge() {
+        const birthDateInput = document.getElementById("tanggal_lahir");
+        const ageInput = document.getElementById("umur");
+        if (!birthDateInput || !ageInput || !birthDateInput.value) return;
+
+        const birthDate = new Date(birthDateInput.value);
+        const today = new Date();
+        let age = today.getFullYear() - birthDate.getFullYear();
+        const monthDiff = today.getMonth() - birthDate.getMonth();
+        if (
+          monthDiff < 0 ||
+          (monthDiff === 0 && today.getDate() < birthDate.getDate())
+        )
+          age--;
+        if (age >= 0 && age <= 120) {
+          ageInput.value = age;
+          ageInput.classList.remove("border-red-300");
+          ageInput.classList.add("border-gray-300");
+        } else {
+          ageInput.value = "";
+          ageInput.classList.add("border-red-300");
+          ageInput.classList.remove("border-gray-300");
+        }
+      }
+
+      function updateNipPlaceholder() {
+        const selectedCategory = document.querySelector(
+          'input[name="kategori_nip"]:checked'
+        );
+        const nipInput = document.getElementById("nip_dokter");
+        if (!nipInput) return;
+        if (selectedCategory) {
+          const category = selectedCategory.value;
+          if (category === "NIP")
+            nipInput.placeholder = "Contoh: 196801011990031001";
+          else if (category === "NRPTT")
+            nipInput.placeholder = "Contoh: 123456789012345678";
+          else if (category === "No. SIP")
+            nipInput.placeholder = "Contoh: 503/SIP/DINKES/2025";
+          else nipInput.placeholder = "Pilih kategori terlebih dahulu";
+        } else {
+          nipInput.placeholder = "Pilih kategori terlebih dahulu";
+        }
+      }
+
+      function updatePreview(data) {
+        const setText = (id, text) => {
+          const el = document.getElementById(id);
+          if (el) el.textContent = text;
+        };
+        setText("preview-nomor-surat", `Nomor : ${data.nomor_surat}`);
+        setText("preview-nama", data.nama_pasien || "");
+        setText("preview-umur", data.umur ? `${data.umur} tahun` : "");
+        setText(
+          "preview-ttl",
+          `${data.tempat_lahir || ""}${
+            data.tanggal_lahir ? ", " + formatDate(data.tanggal_lahir) : ""
+          }`
+        );
+        setText("preview-jk", data.jenis_kelamin || "");
+        setText("preview-alamat-pasien", data.alamat || "");
+        setText("preview-pekerjaan-pasien", data.pekerjaan || "");
+        setText("preview-keperluan-pasien", data.keperluan || "");
+        updateHasilPemeriksaan(data);
+        setText("preview-dokter", data.dokter_pemeriksa || "");
+        setText("preview-nip", data.nip_dokter || "");
+        const kategoriNip = document.getElementById("preview-kategori-nip");
+        if (kategoriNip && data.kategori_nip)
+          kategoriNip.textContent = data.kategori_nip;
+
+        // Status kesehatan: tampilkan tebal (elemen strong di HTML sudah membold)
+        const statusEl = document.getElementById("preview-status");
+        if (statusEl) statusEl.textContent = data.status_kesehatan || "SEHAT";
+
+        const todayFormattedEl = document.getElementById(
+          "preview-tanggal-surat"
+        );
+        if (todayFormattedEl)
+          todayFormattedEl.textContent = formatDate(
+            new Date().toISOString().split("T")[0]
+          );
+
+        window.currentSuratData = data;
+      }
+
+      function printSurat() {
+        window.print();
+      }
+      function showForm() {
+        const formSection = document.getElementById("form-section");
+        const previewSection = document.getElementById("preview-section");
+        if (formSection) formSection.classList.remove("hidden");
+        if (previewSection) previewSection.classList.add("hidden");
+      }
+
+      function resetForm() {
+        const form = document.getElementById("surat-form");
+        if (form) form.reset();
+        // set default status back to SEHAT
+        const statusChecked = document.querySelector(
+          'input[name="status_kesehatan"][value="SEHAT"]'
+        );
+        if (statusChecked) statusChecked.checked = true;
+        const today = new Date().toISOString().split("T")[0];
+        const tanggalPemeriksaanEl = document.getElementById(
+          "tanggal_pemeriksaan"
+        );
+        if (tanggalPemeriksaanEl) tanggalPemeriksaanEl.value = today;
+        const nipInput = document.getElementById("nip_dokter");
+        if (nipInput) nipInput.placeholder = "Pilih kategori terlebih dahulu";
+        const ageInput = document.getElementById("umur");
+        if (ageInput) {
+          ageInput.value = "";
+          ageInput.classList.remove("border-red-300");
+          ageInput.classList.add("border-gray-300");
+        }
+      }
+
+      function formatDate(dateString) {
+        const date = new Date(dateString);
+        if (isNaN(date.getTime())) return "";
+        const months = [
+          "Januari",
+          "Februari",
+          "Maret",
+          "April",
+          "Mei",
+          "Juni",
+          "Juli",
+          "Agustus",
+          "September",
+          "Oktober",
+          "November",
+          "Desember",
+        ];
+        return `${date.getDate()} ${
+          months[date.getMonth()]
+        } ${date.getFullYear()}`;
+      }
+
+      function showToast(message, type = "info") {
+        const toast = document.createElement("div");
+        toast.className = `fixed top-4 right-4 px-6 py-3 rounded-lg text-white z-50 ${
+          type === "success"
+            ? "bg-green-500"
+            : type === "error"
+            ? "bg-red-500"
+            : "bg-blue-500"
+        }`;
+        toast.textContent = message;
+        document.body.appendChild(toast);
+        setTimeout(() => {
+          toast.remove();
+        }, 3000);
+      }
+
+      /* ---------- Form handling ---------- */
+      async function handleFormSubmit(e) {
+        e.preventDefault();
+        if (currentRecordCount >= 999) {
+          showToast(
+            "Batas maksimum 999 surat telah tercapai. Silakan hapus beberapa data terlebih dahulu.",
+            "error"
+          );
+          return;
+        }
+
+        const submitBtn = document.getElementById("submit-btn");
+        const submitText = document.getElementById("submit-text");
+        const submitLoading = document.getElementById("submit-loading");
+
+        if (submitBtn) submitBtn.disabled = true;
+        if (submitText) submitText.textContent = "Memproses...";
+        if (submitLoading) submitLoading.classList.remove("hidden");
+
+        try {
+          const formData = new FormData(e.target);
+          const data = Object.fromEntries(formData.entries());
+
+          // Ambil status kesehatan dari radio (pastikan ada)
+          data.status_kesehatan = formData.get("status_kesehatan") || "SEHAT";
+
+          // Convert numeric fields safely
+          data.umur = parseInt(data.umur) || 0;
+          data.tinggi_badan = parseFloat(data.tinggi_badan) || 0;
+          data.berat_badan = parseFloat(data.berat_badan) || 0;
+          data.tekanan_sistolik = parseInt(data.tekanan_sistolik) || 0;
+          data.tekanan_diastolik = parseInt(data.tekanan_diastolik) || 0;
+          data.nadi = parseInt(data.nadi) || 0;
+          data.suhu = parseFloat(data.suhu) || 0;
+          data.laju_pernapasan = parseInt(data.laju_pernapasan) || 0;
+
+          // Nomor surat
+          const prefix = "400.7.22.1/";
+          const suffix =
+            data.nomor_surat_manual && data.nomor_surat_manual.trim()
+              ? data.nomor_surat_manual.trim()
+              : generateNomorSuratSuffix();
+          data.nomor_surat = prefix + suffix;
+          data.created_at = new Date().toISOString();
+
+          // Hasil pemeriksaan
+          data.hasil_pemeriksaan = formatHasilPemeriksaan(data);
+
+          // Simpan melalui dataSdk (jika tersedia)
+          if (window.dataSdk && typeof window.dataSdk.create === "function") {
+            try {
+              const saveResult = await window.dataSdk.create(data);
+              if (saveResult?.isOk)
+                showToast("Surat berhasil dibuat dan tersimpan!", "success");
+              else
+                showToast(
+                  "Surat berhasil dibuat, namun gagal menyimpan",
+                  "error"
+                );
+            } catch (err) {
+              console.warn("dataSdk.create error:", err);
+              showToast("Surat berhasil dibuat!", "success");
+            }
+          } else {
+            showToast("Surat berhasil dibuat!", "success");
+          }
+
+          // Update preview & tampilkan preview
+          updatePreview(data);
+          const formSection = document.getElementById("form-section");
+          const previewSection = document.getElementById("preview-section");
+          if (formSection) formSection.classList.add("hidden");
+          if (previewSection) previewSection.classList.remove("hidden");
+        } catch (error) {
+          console.error("Error creating letter:", error);
+          showToast("Terjadi kesalahan saat membuat surat", "error");
+        } finally {
+          if (submitBtn) submitBtn.disabled = false;
+          if (submitText) submitText.textContent = "Buat Surat";
+          if (submitLoading) submitLoading.classList.add("hidden");
+        }
+      }
+
+      /* ---------- Unduh PDF (html2pdf) ---------- */
+      async function downloadPDF() {
+        const downloadBtn = document.getElementById("download-pdf-btn");
+        const downloadLoading = document.getElementById("download-loading");
+        const printBtn = document.querySelector(
+          'button[onclick="printSurat()"]'
+        );
+        const backBtn = document.querySelector('button[onclick="showForm()"]');
+
+        // Disable buttons during process
+        if (downloadBtn) downloadBtn.disabled = true;
+        if (printBtn) printBtn.disabled = true;
+        if (backBtn) backBtn.disabled = true;
+        if (downloadLoading) downloadLoading.classList.remove("hidden");
+
+        try {
+          const content = document.getElementById("surat-content");
+          if (!content) throw new Error("Konten surat tidak ditemukan.");
+
+          // Siapkan nama file
+          const namaPasien =
+            (window.currentSuratData && window.currentSuratData.nama_pasien) ||
+            document.getElementById("nama_pasien")?.value ||
+            "surat_keterangan";
+          const tanggal =
+            (window.currentSuratData &&
+              window.currentSuratData.tanggal_pemeriksaan) ||
+            document.getElementById("tanggal_pemeriksaan")?.value ||
+            new Date().toISOString().split("T")[0];
+          const safeNama = namaPasien
+            .replace(/[^a-z0-9\-_ ]/gi, "")
+            .replace(/\s+/g, "_");
+          const safeTanggal = tanggal.replace(/:/g, "-");
+          const filename = `${safeNama}_${safeTanggal}.pdf`;
+
+          // Opsi html2pdf
+          const opt = {
+            margin: [10, 10, 10, 10], // mm
+            filename: filename,
+            image: { type: "jpeg", quality: 0.98 },
+            html2canvas: { scale: 2, useCORS: true, logging: false },
+            jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+          };
+
+          if (typeof html2pdf === "undefined") {
+            showToast(
+              "Library pdf tidak tersedia. Membuka dialog cetak sebagai fallback...",
+              "error"
+            );
+            window.print();
+            return;
+          }
+
+          // Clone node to avoid modifying original displayed content (and to hide no-print if needed)
+          const clone = content.cloneNode(true);
+          // Optionally remove action buttons or other no-print elements from clone
+          // (they are outside content anyway; clone only content)
+          const wrapper = document.createElement("div");
+          wrapper.style.background = "white";
+          wrapper.appendChild(clone);
+
+          await html2pdf().set(opt).from(wrapper).save();
+          showToast("PDF berhasil diunduh.", "success");
+        } catch (err) {
+          console.error("downloadPDF error:", err);
+          showToast(
+            "Gagal mengunduh PDF. Coba gunakan Cetak (Print).",
+            "error"
+          );
+        } finally {
+          if (downloadBtn) downloadBtn.disabled = false;
+          if (printBtn) printBtn.disabled = false;
+          if (backBtn) backBtn.disabled = false;
+          if (downloadLoading) downloadLoading.classList.add("hidden");
+        }
+      }
+
+      /* ---------- Inisialisasi event ---------- */
+      document.addEventListener("DOMContentLoaded", function () {
+        initializeApp();
+        const form = document.getElementById("surat-form");
+        if (form) form.addEventListener("submit", handleFormSubmit);
+
+        // Set tanggal pemeriksaan default jika ada
+        const tanggalPemeriksaanEl = document.getElementById(
+          "tanggal_pemeriksaan"
+        );
+        if (tanggalPemeriksaanEl && !tanggalPemeriksaanEl.value)
+          tanggalPemeriksaanEl.value = new Date().toISOString().split("T")[0];
+
+        // Set default status radio (SEHAT)
+        const defaultStatus = document.querySelector(
+          'input[name="status_kesehatan"][value="SEHAT"]'
+        );
+        if (defaultStatus) defaultStatus.checked = true;
+      });
+    </script>
+  </body>
+</html>
