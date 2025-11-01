@@ -129,6 +129,12 @@
         background: #f1f5f9;
       }
 
+      /* Error highlight */
+      .field-error {
+        border-color: #dc2626 !important; /* red-600 */
+        box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.06);
+      }
+
       /* CETAK: ukuran kertas otomatis (biarkan browser/printer menentukan) */
       @media print {
         .no-print {
@@ -235,7 +241,7 @@
                       id="nomor_surat_manual"
                       name="nomor_surat_manual"
                       class="flex-1 px-3 py-2 border border-emerald-300 rounded-r-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                      placeholder="Masukkan nomor terakhir"
+                      placeholder="Masukkan nomor terakhir (opsional)"
                     />
                   </div>
                   <p class="text-xs text-gray-500 mt-1">
@@ -304,7 +310,7 @@
                     id="umur"
                     name="umur"
                     required
-                    min="1"
+                    min="0"
                     max="120"
                     readonly
                     class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 focus:outline-none focus:ring-2 focus:ring-emerald-500"
@@ -603,6 +609,7 @@
                       placeholder="Cari dan pilih nama dokter..."
                       aria-label="Cari nama dokter"
                       autocomplete="off"
+                      required
                     />
                     <div
                       id="dokter_list"
@@ -1107,11 +1114,11 @@
           age--;
         if (age >= 0 && age <= 120) {
           ageInput.value = age;
-          ageInput.classList.remove("border-red-300");
+          ageInput.classList.remove("field-error");
           ageInput.classList.add("border-gray-300");
         } else {
           ageInput.value = "";
-          ageInput.classList.add("border-red-300");
+          ageInput.classList.add("field-error");
           ageInput.classList.remove("border-gray-300");
         }
       }
@@ -1165,6 +1172,7 @@
             nipEl.value = `${idType}. ${id}`;
             nipEl.setAttribute("data-idtype", idType);
             nipEl.setAttribute("data-id", id);
+            nipEl.classList.remove("field-error");
           }
           closeList();
         }
@@ -1253,6 +1261,20 @@
         }
       }
 
+      // Highlight & utility helpers for validation
+      function markFieldError(el) {
+        if (!el) return;
+        el.classList.add("field-error");
+      }
+      function clearFieldError(el) {
+        if (!el) return;
+        el.classList.remove("field-error");
+      }
+      function clearAllErrors() {
+        const els = document.querySelectorAll(".field-error");
+        els.forEach((e) => e.classList.remove("field-error"));
+      }
+
       function updatePreview(data) {
         const setText = (id, text) => {
           const el = document.getElementById(id);
@@ -1326,9 +1348,16 @@
         const ageInput = document.getElementById("umur");
         if (ageInput) {
           ageInput.value = "";
-          ageInput.classList.remove("border-red-300");
+          ageInput.classList.remove("field-error");
           ageInput.classList.add("border-gray-300");
         }
+        // remove all error styles
+        clearAllErrors();
+        // hide preview
+        const previewSection = document.getElementById("preview-section");
+        const formSection = document.getElementById("form-section");
+        if (previewSection) previewSection.classList.add("hidden");
+        if (formSection) formSection.classList.remove("hidden");
       }
 
       function formatDate(dateString) {
@@ -1369,9 +1398,103 @@
         }, 3000);
       }
 
+      /* ---------- Validasi tambahan: pastikan semua field di Data Pasien + Pemeriksaan terisi ---------- */
+      function validateRequiredFields() {
+        // daftar selector & pesan (urut => fokus prioritas)
+        const checks = [
+          { sel: "#nama_pasien", msg: "Nama pasien wajib diisi" },
+          { sel: "#tempat_lahir", msg: "Tempat lahir wajib diisi" },
+          { sel: "#tanggal_lahir", msg: "Tanggal lahir wajib diisi" },
+          { sel: "#umur", msg: "Umur harus terisi (cek tanggal lahir)" },
+          { sel: "#jenis_kelamin", msg: "Jenis kelamin harus dipilih" },
+          { sel: "#alamat", msg: "Alamat wajib diisi" },
+          { sel: "#pekerjaan", msg: "Pekerjaan wajib diisi" },
+          { sel: "#keperluan", msg: "Keperluan surat wajib diisi" },
+          { sel: "#tinggi_badan", msg: "Tinggi badan wajib diisi" },
+          { sel: "#berat_badan", msg: "Berat badan wajib diisi" },
+          {
+            sel: "#tekanan_sistolik",
+            msg: "Tekanan darah (sistolik) wajib diisi",
+          },
+          {
+            sel: "#tekanan_diastolik",
+            msg: "Tekanan darah (diastolik) wajib diisi",
+          },
+          { sel: "#lingkar_perut", msg: "Lingkar perut wajib diisi" },
+          { sel: "#nadi", msg: "Nadi wajib diisi" },
+          { sel: "#suhu", msg: "Suhu tubuh wajib diisi" },
+          { sel: "#laju_pernapasan", msg: "Laju pernapasan wajib diisi" },
+          { sel: "#buta_warna", msg: "Status buta warna wajib dipilih" },
+          { sel: "#dokter_search", msg: "Pilih dokter pemeriksa" },
+          { sel: "#nip_dokter", msg: "Nomor identitas dokter wajib terisi" },
+          {
+            sel: "#tanggal_pemeriksaan",
+            msg: "Tanggal pemeriksaan wajib diisi",
+          },
+        ];
+
+        clearAllErrors();
+
+        for (let i = 0; i < checks.length; i++) {
+          const c = checks[i];
+          const el = document.querySelector(c.sel);
+          if (!el) continue;
+          const val =
+            el.tagName === "SELECT" || el.type === "radio"
+              ? el.value
+              : (el.value || "").toString().trim();
+
+          // khsus: umur harus >0
+          if (c.sel === "#umur") {
+            if (!val || Number(val) <= 0) {
+              markFieldError(el);
+              el.focus();
+              showToast(c.msg, "error");
+              return false;
+            }
+            continue;
+          }
+
+          // khsus: nip_dokter mungkin readonly namun harus terisi (cek atribut data-id atau value)
+          if (c.sel === "#nip_dokter") {
+            const nipField = document.getElementById("nip_dokter");
+            const dataId = nipField?.getAttribute("data-id") || "";
+            const value = (nipField?.value || "").toString().trim();
+            if (!dataId && !value) {
+              markFieldError(nipField);
+              // juga tandai input dokter_search agar user tahu
+              const ds = document.getElementById("dokter_search");
+              if (ds) markFieldError(ds);
+              if (ds) ds.focus();
+              showToast(c.msg, "error");
+              return false;
+            }
+            continue;
+          }
+
+          // umum: jika kosong -> gagal
+          if (!val) {
+            markFieldError(el);
+            el.focus();
+            showToast(c.msg, "error");
+            return false;
+          }
+        }
+
+        // Jika semua OK
+        return true;
+      }
+
       /* ---------- Form handling ---------- */
       async function handleFormSubmit(e) {
         e.preventDefault();
+
+        // Validasi custom: pastikan semua field wajib terisi
+        const ok = validateRequiredFields();
+        if (!ok) {
+          return;
+        }
+
         if (currentRecordCount >= 999) {
           showToast(
             "Batas maksimum 999 surat telah tercapai. Silakan hapus beberapa data terlebih dahulu.",
