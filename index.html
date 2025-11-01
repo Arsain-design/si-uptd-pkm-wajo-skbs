@@ -229,7 +229,6 @@
                   <label
                     for="nomor_surat_manual"
                     class="block text-sm font-medium text-gray-700 mb-1"
-                    >Nomor Surat</label
                   >
                   <div class="flex items-center">
                     <span
@@ -240,13 +239,14 @@
                       type="text"
                       id="nomor_surat_manual"
                       name="nomor_surat_manual"
+                      required
                       class="flex-1 px-3 py-2 border border-emerald-300 rounded-r-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                      placeholder="Masukkan nomor terakhir (opsional)"
+                      placeholder="Contoh: 1234"
                     />
                   </div>
                   <p class="text-xs text-gray-500 mt-1">
-                    Isi bagian setelah 400.7.22.1/ atau kosongkan untuk nomor
-                    otomatis
+                    Masukkan bagian setelah
+                    <span class="font-mono">400.7.22.1/</span>.
                   </p>
                 </div>
 
@@ -479,9 +479,6 @@
                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
                       placeholder="Mis: 80"
                     />
-                    <p class="text-xs text-gray-500 mt-1">
-                      Lingkar perut wajib diisi (dalam cm).
-                    </p>
                   </div>
                 </div>
 
@@ -825,7 +822,7 @@
 
               <div
                 class="hasil-pemeriksaan"
-                style="padding: 10px; margin: 15px 0"
+                style="padding: 0px; margin: 25px 0"
               >
                 <p style="margin-bottom: 8px; font-size: 12pt">
                   Hasil Pemeriksaan Fisik :
@@ -1182,10 +1179,6 @@
           if (!q) {
             // jika kosong, sembunyikan list
             list.classList.add("hidden");
-            // clear hidden dokter and nip
-            // (biarkan user mengetik manual jika ingin)
-            // hiddenDokter.value = "";
-            // nipEl.value = "";
             return;
           }
           renderList(q);
@@ -1295,10 +1288,31 @@
         setText("preview-keperluan-pasien", data.keperluan || "");
         updateHasilPemeriksaan(data);
         setText("preview-dokter", data.dokter_pemeriksa || "");
-        setText("preview-nip", data.nip_dokter || "");
-        const kategoriNip = document.getElementById("preview-kategori-nip");
-        if (kategoriNip && data.kategori_nip)
-          kategoriNip.textContent = data.kategori_nip;
+
+        // --- TAMPILKAN NIP / ID SECARA AMAN TANPA MENGGANDakan ---
+        const previewKategori = document.getElementById("preview-kategori-nip");
+        const previewDot = document.getElementById("preview-kategori-dot");
+        const previewNip = document.getElementById("preview-nip");
+
+        // Prefer explicit parsed fields (nip_number + kategori_nip)
+        if (data.kategori_nip && (data.nip_number || data.nip_dokter)) {
+          if (previewKategori) previewKategori.textContent = data.kategori_nip;
+          if (previewNip)
+            previewNip.textContent = data.nip_number || data.nip_dokter || "";
+          if (previewDot) previewDot.style.display = "inline";
+        } else if (data.nip_display) {
+          // fallback: jika hanya punya display string (tipe + nomor digabung)
+          if (previewKategori) previewKategori.textContent = "";
+          if (previewNip) previewNip.textContent = data.nip_display;
+          if (previewDot) previewDot.style.display = "none";
+        } else {
+          // tidak ada info -> kosongkan
+          if (previewKategori) previewKategori.textContent = "";
+          if (previewNip) previewNip.textContent = data.nip_dokter || "";
+          if (previewDot)
+            previewDot.style.display =
+              (previewKategori && previewKategori.textContent && previewNip && previewNip.textContent) ? "inline" : "none";
+        }
 
         // Status kesehatan: tampilkan tebal (elemen strong di HTML sudah membold)
         const statusEl = document.getElementById("preview-status");
@@ -1398,10 +1412,11 @@
         }, 3000);
       }
 
-      /* ---------- Validasi tambahan: pastikan semua field di Data Pasien + Pemeriksaan terisi ---------- */
+      /* ---------- Validasi tambahan: pastikan semua field di Data Pasien + Pemeriksaan + Nomor Surat terisi ---------- */
       function validateRequiredFields() {
         // daftar selector & pesan (urut => fokus prioritas)
         const checks = [
+          { sel: "#nomor_surat_manual", msg: "Nomor surat wajib diisi" },
           { sel: "#nama_pasien", msg: "Nama pasien wajib diisi" },
           { sel: "#tempat_lahir", msg: "Tempat lahir wajib diisi" },
           { sel: "#tanggal_lahir", msg: "Tanggal lahir wajib diisi" },
@@ -1524,16 +1539,15 @@
             const idAttr = nipField.getAttribute("data-id") || "";
             const idTypeAttr = nipField.getAttribute("data-idtype") || "";
             if (idAttr) {
-              data.nip_dokter = idAttr;
+              // SIMPAN TERPISAH agar preview tidak menggandakan tipe
+              data.nip_number = idAttr;
               data.kategori_nip = idTypeAttr || "";
-              // For preview we want to show "TYPE. id"
-              data.nip_display = idTypeAttr
-                ? `${idTypeAttr}. ${idAttr}`
-                : idAttr;
+              data.nip_display = idTypeAttr ? `${idTypeAttr}. ${idAttr}` : idAttr;
             } else {
               // fallback to raw input if user typed something in hidden fields
-              data.nip_dokter = data.nip_dokter || "";
+              data.nip_number = (data.nip_dokter || "").toString().replace(/^[^\dA-Za-z]+/, "");
               data.kategori_nip = data.kategori_nip || "";
+              data.nip_display = data.nip_display || data.nip_dokter || "";
             }
           }
 
@@ -1554,10 +1568,9 @@
 
           // Nomor surat
           const prefix = "400.7.22.1/";
-          const suffix =
-            data.nomor_surat_manual && data.nomor_surat_manual.trim()
-              ? data.nomor_surat_manual.trim()
-              : generateNomorSuratSuffix();
+          const manual = (data.nomor_surat_manual || "").toString().trim();
+          // Karena nomor sekarang wajib, gunakan manual; jika kosong fallback ke auto (safety)
+          const suffix = manual ? manual : generateNomorSuratSuffix();
           data.nomor_surat = prefix + suffix;
           data.created_at = new Date().toISOString();
 
@@ -1584,11 +1597,8 @@
           }
 
           // Prepare data for preview
-          // Ensure preview shows full identity string
-          data.nip_dokter = data.nip_display || data.nip_dokter || "";
-          data.kategori_nip =
-            data.kategori_nip ||
-            (nipField ? nipField.getAttribute("data-idtype") || "" : "");
+          // Do not overwrite nip fields with duplicate TYPE. number string
+          // preview logic will decide how to display (kategori + nomor) safely
 
           // If dokter_pemeriksa hidden is empty but dokter_search has value, use that
           if (!data.dokter_pemeriksa) {
@@ -1708,155 +1718,7 @@
       });
     </script>
 
-    <!-- Patch: prevent duplicated identity labels (kategori + nomor) in preview -->
-    <script>
-      document.addEventListener("DOMContentLoaded", function () {
-        function updateNipPreview() {
-          var kategoriEl = document.getElementById("preview-kategori-nip");
-          var kategoriDotEl = document.getElementById("preview-kategori-dot");
-          var nipEl = document.getElementById("preview-nip");
-          if (!nipEl) return;
-          // Try to find input that holds doctor id info
-          var nipField =
-            document.getElementById("nip_dokter") ||
-            document.querySelector('[name="nip_dokter"]') ||
-            document.querySelector("input[data-id][data-idtype]");
-          var kategori = "";
-          var nipNumber = "";
-          if (nipField) {
-            // Prefer data attributes if present
-            var dataId = nipField.getAttribute("data-id") || "";
-            var dataIdType = nipField.getAttribute("data-idtype") || "";
-            var value = (nipField.value || "").trim();
-            if (dataId) {
-              kategori = dataIdType || "";
-              nipNumber = dataId;
-            } else if (value) {
-              // try parse "TYPE. number"
-              var m = value.match(/^(.+?)\.\s*(.+)$/);
-              if (m) {
-                kategori = m[1].trim();
-                nipNumber = m[2].trim();
-              } else {
-                // if value contains repeated word like "NIP. NIP. 1968" remove duplicates
-                var parts = value.split(/\s+/);
-                if (
-                  parts.length > 1 &&
-                  parts[0].toUpperCase().replace(/\W/g, "") ===
-                    parts[1].toUpperCase().replace(/\W/g, "")
-                ) {
-                  // drop the duplicate token
-                  parts.splice(1, 1);
-                  nipNumber = parts.slice(1).join(" ").trim();
-                  kategori = parts[0];
-                } else {
-                  // fallback: if value starts with letters and then digits, try separate
-                  var m2 = value.match(
-                    /^([A-Za-z\.\s]+)\s+([0-9A-Za-z\-\/]+.*)$/
-                  );
-                  if (m2) {
-                    kategori = m2[1].trim();
-                    nipNumber = m2[2].trim();
-                  } else {
-                    // treat all as nip number
-                    kategori = "";
-                    nipNumber = value;
-                  }
-                }
-              }
-            }
-          } else {
-            // fallback: try to read existing preview content and sanitize duplicates
-            var existingKategori =
-              kategoriEl && kategoriEl.textContent
-                ? kategoriEl.textContent.trim()
-                : "";
-            var existingNip =
-              nipEl && nipEl.textContent ? nipEl.textContent.trim() : "";
-            if (existingKategori && existingNip) {
-              kategori = existingKategori;
-              nipNumber = existingNip;
-            } else {
-              // nothing to do
-              return;
-            }
-          }
-
-          // set elements
-          if (kategoriEl) kategoriEl.textContent = kategori;
-          if (nipEl) nipEl.textContent = nipNumber || "";
-          if (kategoriDotEl) {
-            if (kategori && nipNumber) kategoriDotEl.style.display = "inline";
-            else kategoriDotEl.style.display = "none";
-          }
-        }
-
-        // Update on input/change for common fields
-        var watchers = [];
-        var f = document.getElementById("nip_dokter");
-        if (f) watchers.push(f);
-        // also watch for any input with data-id/data-idtype
-        var els = document.querySelectorAll(
-          "input[data-id], input[data-idtype]"
-        );
-        els.forEach(function (e) {
-          if (watchers.indexOf(e) === -1) watchers.push(e);
-        });
-
-        watchers.forEach(function (el) {
-          el.addEventListener("input", updateNipPreview);
-          el.addEventListener("change", updateNipPreview);
-        });
-
-        // Also observe DOM changes in case another script updates attributes like data-id dynamically
-        var observer = new MutationObserver(function (muts) {
-          muts.forEach(function (m) {
-            if (
-              m.type === "attributes" &&
-              (m.attributeName === "data-id" ||
-                m.attributeName === "data-idtype" ||
-                m.attributeName === "value")
-            ) {
-              updateNipPreview();
-            }
-          });
-        });
-        watchers.forEach(function (w) {
-          observer.observe(w, {
-            attributes: true,
-            childList: false,
-            subtree: false,
-          });
-        });
-
-        // Initial call
-        updateNipPreview();
-
-        // If the page has a global function that updates preview (like updatePreview), try to wrap it to run after
-        try {
-          if (typeof updatePreview === "function") {
-            var orig = updatePreview;
-            updatePreview = function (data) {
-              try {
-                orig(data);
-              } catch (e) {
-                console.warn("original updatePreview error", e);
-              }
-              try {
-                updateNipPreview();
-              } catch (e) {
-                console.warn("nip preview patch error", e);
-              }
-            };
-          }
-        } catch (e) {
-          /* ignore */
-        }
-
-        // Also update before print
-        window.addEventListener("beforeprint", updateNipPreview);
-        window.addEventListener("afterprint", updateNipPreview);
-      });
-    </script>
+    <!-- Catatan: skrip patch lama dihapus karena mengandung syntax error.
+         Logika tampilan NIP kini ditangani aman oleh updatePreview() di atas. -->
   </body>
 </html>
